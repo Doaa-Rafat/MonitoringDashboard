@@ -12,6 +12,7 @@ using Infrastructure.Persistence;
 using Hangfire;
 using WebAPI.Extensions;
 using WebAPI.Filters;
+using WebAPI.Hubs;
 var builder = WebApplication.CreateBuilder(args);
     builder.Host.UseSerilog((ctx, services, cfg) => cfg
         .ReadFrom.Configuration(ctx.Configuration)
@@ -62,6 +63,16 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("AdminOnly", p => p.RequireRole(RoleNames.Admin));
 
 builder.Services.AddHangfireServices(builder.Configuration);
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IPresenceTracker, PresenceTracker>();
+builder.Services.AddSingleton<IRealtimeNotifier, SignalRRealtimeNotifier>();
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(o => o.AddPolicy("Client", p => p
+    .WithOrigins(allowedOrigins)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));          // required by SignalR when it falls back from WebSockets
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -79,7 +90,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("Client");
 app.UseAuthentication();
 
 app.UseAuthorization();
@@ -89,5 +100,6 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = [new HangfireDashboardAuthorizationFilter(app.Environment)]
 });
 app.MapControllers();
+app.MapHub<MonitoringHub>("/hubs/monitoring");
 app.RegisterRecurringJobs();
 app.Run();

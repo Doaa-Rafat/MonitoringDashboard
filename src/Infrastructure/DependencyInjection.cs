@@ -21,7 +21,6 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHashService, PasswordHashService>();
         services.AddScoped<DbSeeder>();
         services.AddSingleton<IMetricsCollector, SimulatedMetricsCollector>();
-        services.AddSingleton<IRealtimeNotifier, NullRealtimeNotifier>();
         services.AddScoped<CollectMetricsJob>();
         return services;
     }

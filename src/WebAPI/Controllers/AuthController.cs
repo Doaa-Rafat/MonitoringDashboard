@@ -1,5 +1,6 @@
 using Application.Features.Auth;
 using Application.Features.Auth.Commands;
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace WebAPI.Controllers;
 
 [ApiController]
-[Route("api/v1/auth")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/auth")]
 public class AuthController(ISender mediator) : ControllerBase
 {
     [HttpPost("register"), AllowAnonymous]

@@ -3,12 +3,14 @@ using Application.Features.AlertRules;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Asp.Versioning;
 
 namespace WebAPI.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/alert-rules")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/alert-rules")]
 public class AlertRulesController(ISender mediator) : ControllerBase
 {
     public record UpdateAlertRuleRequest(string Operator, double Threshold, bool IsEnabled);

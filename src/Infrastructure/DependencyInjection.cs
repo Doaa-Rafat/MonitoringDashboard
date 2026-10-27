@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Application.Features.Jobs;
 using Infrastructure.Auth;
 using Infrastructure.BackgroundJobs;
 using Infrastructure.Persistence;
@@ -22,6 +23,14 @@ public static class DependencyInjection
         services.AddScoped<DbSeeder>();
         services.AddSingleton<IMetricsCollector, SimulatedMetricsCollector>();
         services.AddScoped<CollectMetricsJob>();
+        services.Configure<ReportStorageOptions>(config.GetSection(ReportStorageOptions.SectionName));
+        services.AddSingleton<IReportFileStore, LocalReportFileStore>();
+        services.AddSingleton<IEmailSender, SimulatedEmailSender>();
+        services.AddScoped<IReportJobScheduler, HangfireReportJobScheduler>();
+        services.AddScoped<IJobMonitoringService, HangfireJobMonitoringService>();
+        services.AddScoped<GenerateReportJob>();
+        services.AddScoped<FinalizeReportJob>();
+        services.AddScoped<ExpireStaleReportJob>();
         return services;
     }
 }

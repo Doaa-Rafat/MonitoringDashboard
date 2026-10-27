@@ -11,4 +11,5 @@ public class CurrentUserService(IHttpContextAccessor accessor) : ICurrentUserSer
         int.TryParse(Principal?.FindFirstValue("sub"), out var id) ? id : null;
 
     public string? UserName => Principal?.FindFirstValue("unique_name");
+    public string? Email => Principal?.FindFirstValue("email");
 }

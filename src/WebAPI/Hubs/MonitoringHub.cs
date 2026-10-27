@@ -19,6 +19,8 @@ public class MonitoringHub(
         var firstConnection = presence.UserConnected(userId, userName, Context.ConnectionId);
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Alerts);
 
+        await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Reports);
+
         var online = presence.GetOnlineUsers();
         if (firstConnection) await Clients.All.PresenceChanged(online);
         else await Clients.Caller.PresenceChanged(online);

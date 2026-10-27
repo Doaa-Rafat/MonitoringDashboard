@@ -1,6 +1,7 @@
 using Application.Common.Models;
 using Application.Features.Metrics;
 using Application.Features.Metrics.Queries;
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,8 @@ namespace WebAPI.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/servers/{serverId:int}/metrics")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/servers/{serverId:int}/metrics")]
 public class MetricsController(ISender mediator) : ControllerBase
 {
     public record MetricsFilter(DateTime? From, DateTime? To, string SortBy = "timestamp",

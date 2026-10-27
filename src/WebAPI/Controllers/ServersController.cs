@@ -2,6 +2,7 @@ using Application.Common.Models;
 using Application.Features.Servers;
 using Application.Features.Servers.Commands;
 using Application.Features.Servers.Queries;
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,8 @@ namespace WebAPI.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/servers")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/servers")]
 public class ServersController(ISender mediator) : ControllerBase
 {
     public record UpdateServerRequest(string Name, string? IpAddress, string? Description);

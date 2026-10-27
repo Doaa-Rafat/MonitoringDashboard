@@ -2,6 +2,7 @@ using Application.Common.Models;
 using Application.Features.Alerts;
 using Application.Features.Alerts.Commands;
 using Application.Features.Alerts.Queries;
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,8 @@ namespace WebAPI.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/alerts")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/alerts")]
 public class AlertsController(ISender mediator) : ControllerBase
 {
     [HttpGet]

@@ -1,3 +1,5 @@
+using Application.Common.Interfaces;
+using Infrastructure.Auth;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +14,10 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(o =>
             o.UseSqlServer(config.GetConnectionString("DefaultConnection")));
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
-
+        services.Configure<JwtSettings>(config.GetSection(JwtSettings.SectionName));
+        services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<IPasswordHashService, PasswordHashService>();
+        services.AddScoped<DbSeeder>();
         return services;
     }
 }

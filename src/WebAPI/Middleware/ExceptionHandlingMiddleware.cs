@@ -48,6 +48,12 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                 detail = ex.Message;
                 logger.LogWarning(ex, "Conflict");
                 break;
+            case UnauthorizedException:
+                status = StatusCodes.Status401Unauthorized;
+                title = "Unauthorized";
+                detail = ex.Message;
+                logger.LogWarning("Unauthorized: {Message}", ex.Message);
+                break;
             default:
                 status = StatusCodes.Status500InternalServerError;
                 title = "An unexpected error occurred";   

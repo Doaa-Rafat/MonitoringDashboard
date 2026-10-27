@@ -1,6 +1,8 @@
 using Application.Common.Interfaces;
 using Infrastructure.Auth;
+using Infrastructure.BackgroundJobs;
 using Infrastructure.Persistence;
+using Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +20,9 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHashService, PasswordHashService>();
         services.AddScoped<DbSeeder>();
+        services.AddSingleton<IMetricsCollector, SimulatedMetricsCollector>();
+        services.AddSingleton<IRealtimeNotifier, NullRealtimeNotifier>();
+        services.AddScoped<CollectMetricsJob>();
         return services;
     }
 }

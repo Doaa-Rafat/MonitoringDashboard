@@ -9,6 +9,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Domain.Constants;
 using Infrastructure.Persistence;
+using Hangfire;
+using WebAPI.Extensions;
+using WebAPI.Filters;
 var builder = WebApplication.CreateBuilder(args);
     builder.Host.UseSerilog((ctx, services, cfg) => cfg
         .ReadFrom.Configuration(ctx.Configuration)
@@ -57,6 +60,8 @@ builder.Services
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("AdminOnly", p => p.RequireRole(RoleNames.Admin));
+
+builder.Services.AddHangfireServices(builder.Configuration);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -78,7 +83,11 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 
 app.UseAuthorization();
-
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    DashboardTitle = "Monitoring Jobs",
+    Authorization = [new HangfireDashboardAuthorizationFilter(app.Environment)]
+});
 app.MapControllers();
-
+app.RegisterRecurringJobs();
 app.Run();

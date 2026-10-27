@@ -1,3 +1,4 @@
+using Application.Features.Alerts;
 using Application.Features.Metrics;
 
 namespace WebAPI.Hubs;
@@ -8,5 +9,6 @@ public interface IMonitoringClient
 {
     Task MetricReceived(MetricDto metric);
     Task PresenceChanged(IReadOnlyList<OnlineUserDto> users);
-    // step 7: Task AlertTriggered(AlertDto alert);
+    Task AlertTriggered(AlertDto alert);
+    Task AlertUpdated(AlertDto alert);
 }

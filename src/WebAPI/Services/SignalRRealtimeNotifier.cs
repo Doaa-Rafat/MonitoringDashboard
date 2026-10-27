@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Application.Features.Alerts;
 using Application.Features.Metrics;
 using Microsoft.AspNetCore.SignalR;
 using WebAPI.Hubs;
@@ -12,4 +13,9 @@ public class SignalRRealtimeNotifier(IHubContext<MonitoringHub, IMonitoringClien
         await hub.Clients.Group(HubGroups.Server(metric.ServerId)).MetricReceived(metric);
         await hub.Clients.Group(HubGroups.Dashboard).MetricReceived(metric);
     }
+    public Task AlertTriggeredAsync(AlertDto alert, CancellationToken ct = default) =>
+    hub.Clients.Group(HubGroups.Alerts).AlertTriggered(alert);
+
+    public Task AlertUpdatedAsync(AlertDto alert, CancellationToken ct = default) =>
+    hub.Clients.Group(HubGroups.Alerts).AlertUpdated(alert);
 }

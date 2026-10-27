@@ -1,5 +1,6 @@
 using System.Reflection;
 using Application.Common.Behaviors;
+using Application.Features.Alerts;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,7 +19,7 @@ public static class DependencyInjection
             cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
         });
-
+        services.AddScoped<IAlertEvaluator, AlertEvaluator>();
         return services;
     }
 }

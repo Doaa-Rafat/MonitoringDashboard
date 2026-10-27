@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Application.Features.Alerts;
 using Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ public record CollectMetricsCommand : IRequest<int>;
 public class CollectMetricsCommandHandler(
     IApplicationDbContext db,
     IMetricsCollector collector,
+    IAlertEvaluator alertEvaluator,
     IRealtimeNotifier notifier,
     ILogger<CollectMetricsCommandHandler> logger) : IRequestHandler<CollectMetricsCommand, int>
 {
@@ -46,24 +48,43 @@ public class CollectMetricsCommandHandler(
             }
         }
 
+        // Metrics and alerts share one unit of work: both are saved, or neither.
+        var evaluation = await alertEvaluator.EvaluateAsync(collected, ct);
         await db.SaveChangesAsync(ct);
 
-        // TODO (step 7): evaluate alert rules here, after the metrics are saved.
+        // Real-time pushes happen AFTER the save and never fail the job: the data is already stored.
+        var names = servers.ToDictionary(s => s.ServerId, s => s.Name);
 
-        // Real-time push happens AFTER the save and never fails the job: the data is already stored.
         foreach (var m in collected)
         {
-            try
-            {
-                await notifier.MetricCollectedAsync(new MetricDto(m.MetricId, m.ServerId, m.CpuUsage,
-                    m.MemoryUsage, m.DiskUsage, m.ResponseTime, m.Status, m.Timestamp), ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.LogWarning(ex, "Real-time notification failed for server {ServerId}", m.ServerId);
-            }
+            var dto = new MetricDto(m.MetricId, m.ServerId, m.CpuUsage, m.MemoryUsage,
+                m.DiskUsage, m.ResponseTime, m.Status, m.Timestamp);
+            await NotifyAsync(() => notifier.MetricCollectedAsync(dto, ct), $"metric of server {m.ServerId}");
+        }
+        foreach (var a in evaluation.Created)
+        {
+            var dto = AlertMappings.From(a, names[a.ServerId]);
+            await NotifyAsync(() => notifier.AlertTriggeredAsync(dto, ct), $"alert {a.AlertId}");
+        }
+        foreach (var a in evaluation.Resolved)
+        {
+            var dto = AlertMappings.From(a, names[a.ServerId]);
+            await NotifyAsync(() => notifier.AlertUpdatedAsync(dto, ct), $"alert {a.AlertId}");
         }
 
+        if (evaluation.Created.Count > 0 || evaluation.Resolved.Count > 0)
+            logger.LogInformation("Alerts: {Created} triggered, {Resolved} auto-resolved",
+                evaluation.Created.Count, evaluation.Resolved.Count);
+
         return collected.Count;
+    }
+
+    private async Task NotifyAsync(Func<Task> send, string what)
+    {
+        try { await send(); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Real-time notification failed: {What}", what);
+        }
     }
 }

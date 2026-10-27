@@ -2,6 +2,8 @@ using System.Text.Json;
 using Domain.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace WebAPI.Middleware;
 
@@ -53,6 +55,12 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                 title = "Unauthorized";
                 detail = ex.Message;
                 logger.LogWarning("Unauthorized: {Message}", ex.Message);
+                break;
+            case DbUpdateException { InnerException: SqlException { Number: 2601 or 2627 or 547 } }:
+                status = StatusCodes.Status409Conflict;
+                title = "Conflict";
+                detail = "The operation conflicts with existing data.";
+                logger.LogWarning(ex, "Database constraint violation");
                 break;
             default:
                 status = StatusCodes.Status500InternalServerError;

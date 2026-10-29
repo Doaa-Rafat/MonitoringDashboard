@@ -54,3 +54,7 @@ export interface ReportDto {
 }
 
 export interface OnlineUserDto { userId: number; userName: string; connections: number }
+export interface JobDto { id: string; name: string; state: string; timestamp: string | null; durationMs: number | null; error: string | null }
+export interface RecurringJobDto { id: string; cron: string; nextExecution: string | null; lastExecution: string | null; lastJobState: string | null; error: string | null }
+export interface JobCountsDto { enqueued: number; scheduled: number; processing: number; succeeded: number; failed: number; deleted: number; recurring: number; servers: number }
+export interface ManagedUserDto { id: number; userName: string; email: string; roles: string[]; createdAt: string }

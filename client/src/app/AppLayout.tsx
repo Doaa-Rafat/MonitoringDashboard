@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button'
 import { useRealtime, type ConnectionState } from '@/realtime/realtimeContext'
 import { cn } from '@/lib/cn'
 import { queryClient } from './queryClient'
+import {AlertToasts} from '@/features/alerts/AlertToasts' 
+import {useLiveInvalidation} from '@/realtime/useLiveInvalidation'  
 
 const connectionLabel: Record<ConnectionState, { text: string; dot: string }> = {
   connected: { text: 'Live', dot: 'bg-emerald-500' },
@@ -30,7 +32,7 @@ export function AppLayout() {
   const clearSession = useAuthStore((s) => s.clearSession)
   const isAdmin = useIsAdmin()
   const { theme, toggle } = useThemeStore()
-
+  useLiveInvalidation()
   const links = [
     { to: '/dashboard', label: 'Dashboard' },
     { to: '/alerts', label: 'Alerts' },
@@ -46,6 +48,7 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen">
+      <AlertToasts />
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <span className="font-semibold">Monitoring</span>

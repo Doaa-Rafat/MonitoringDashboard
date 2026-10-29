@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': { target, changeOrigin: true, secure: false },
         '/hubs': { target, changeOrigin: true, secure: false, ws: true },
+        '/hangfire': { target, changeOrigin: true, secure: false },
       },
     },
     test: {

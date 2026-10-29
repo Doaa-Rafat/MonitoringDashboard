@@ -5,9 +5,9 @@ services:
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Set SA_PASSWORD in .env}
     ports:
-      - "1433:1433"
+      - "1433:1433"          # published for local tools only; remove it on a shared server
     volumes:
       - sqldata:/var/opt/mssql
     healthcheck:
@@ -15,6 +15,58 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 20s
+
+  # One-shot job: creates the database, tables and seed data (the script can be re-run safely).
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      SQLCMDPASSWORD: ${SA_PASSWORD:?Set SA_PASSWORD in .env}
+    volumes:
+      - ./db/schema.sql:/schema.sql:ro
+    entrypoint: ["/opt/mssql-tools18/bin/sqlcmd", "-C", "-I", "-b", "-S", "sqlserver", "-U", "sa", "-i", "/schema.sql"]
+
+  api:
+    build:
+      context: .
+      dockerfile: src/WebAPI/Dockerfile
+    container_name: monitoring-api
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=MonitoringDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
+      Jwt__Key: "${JWT_KEY:?Set JWT_KEY in .env (at least 32 characters)}"
+      Seed__Admin__UserName: ${SEED_ADMIN_USERNAME:-admin}
+      Seed__Admin__Email: ${SEED_ADMIN_EMAIL:-admin@example.com}
+      Seed__Admin__Password: "${SEED_ADMIN_PASSWORD:?Set SEED_ADMIN_PASSWORD in .env}"
+      Seed__User__UserName: ${SEED_USER_USERNAME:-user}
+      Seed__User__Email: ${SEED_USER_EMAIL:-user@example.com}
+      Seed__User__Password: "${SEED_USER_PASSWORD:?Set SEED_USER_PASSWORD in .env}"
+      Reports__StoragePath: /data/reports
+      ForwardedHeaders__Enabled: "true"
+      HttpsRedirection__Enabled: "false"
+      OpenApi__Enabled: "true"                    # Swagger UI at /swagger (disable on a public deployment)
+    volumes:
+      - reports:/data/reports
+
+  client:
+    build:
+      context: ./client
+    container_name: monitoring-client
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
 
 volumes:
   sqldata:
+  reports:

@@ -12,14 +12,16 @@ public class SimulatedMetricsCollector : IMetricsCollector
         var rnd = Random.Shared;
 
         if (rnd.NextDouble() < 0.02)   // ~2%: the server is down
-            return Task.FromResult(new MetricSample(0, 0, 0, 0, ServerStatus.Down));
+            return Task.FromResult(new MetricSample(0, 0, 0, 0, ServerStatus.Down, 0, 0));
 
         var sample = new MetricSample(
             CpuUsage:     rnd.NextDouble() < 0.08 ? Between(85, 99)  : Between(10, 70),
             MemoryUsage:  rnd.NextDouble() < 0.05 ? Between(91, 99)  : Between(30, 85),
             DiskUsage:    rnd.NextDouble() < 0.02 ? Between(91, 98)  : Between(40, 80),
             ResponseTime: rnd.NextDouble() < 0.05 ? Between(1000, 2500) : Between(50, 400),
-            Status:       ServerStatus.Up);
+            Status:       ServerStatus.Up,
+            NetworkInKbps: rnd.NextDouble() < 0.1 ? Between(5000, 25000) : Between(100, 4000),
+            NetworkOutKbps: rnd.NextDouble() < 0.1 ? Between(3000, 15000) : Between(50, 2500));
 
         return Task.FromResult(sample);
     }

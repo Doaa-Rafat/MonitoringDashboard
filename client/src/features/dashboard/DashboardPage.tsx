@@ -92,6 +92,8 @@ export function DashboardPage() {
                   <dt className="text-slate-500">Memory</dt><dd>{fmtNum(s.latestMetric.memoryUsage, '%')}</dd>
                   <dt className="text-slate-500">Disk</dt><dd>{fmtNum(s.latestMetric.diskUsage, '%')}</dd>
                   <dt className="text-slate-500">Response</dt><dd>{fmtNum(s.latestMetric.responseTime, ' ms')}</dd>
+                  <dt className="text-slate-500">Network in</dt><dd>{s.latestMetric.networkInKbps === null ? '—' : fmtNum(s.latestMetric.networkInKbps, ' Kbps')}</dd>
+                  <dt className="text-slate-500">Network out</dt><dd>{s.latestMetric.networkOutKbps === null ? '—' : fmtNum(s.latestMetric.networkOutKbps, ' Kbps')}</dd>
                 </dl>
               ) : (
                 <p className="mt-3 text-sm text-slate-500">No metrics yet.</p>

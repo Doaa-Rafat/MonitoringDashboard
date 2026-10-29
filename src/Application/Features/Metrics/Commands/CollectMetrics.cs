@@ -34,6 +34,8 @@ public class CollectMetricsCommandHandler(
                     MemoryUsage = sample.MemoryUsage,
                     DiskUsage = sample.DiskUsage,
                     ResponseTime = sample.ResponseTime,
+                    NetworkInKbps = sample.NetworkInKbps,
+                    NetworkOutKbps = sample.NetworkOutKbps,
                     Status = sample.Status,
                     Timestamp = timestamp
                 };
@@ -58,7 +60,7 @@ public class CollectMetricsCommandHandler(
         foreach (var m in collected)
         {
             var dto = new MetricDto(m.MetricId, m.ServerId, m.CpuUsage, m.MemoryUsage,
-                m.DiskUsage, m.ResponseTime, m.Status, m.Timestamp);
+                m.DiskUsage, m.ResponseTime, m.Status, m.Timestamp, m.NetworkInKbps, m.NetworkOutKbps);
             await NotifyAsync(() => notifier.MetricCollectedAsync(dto, ct), $"metric of server {m.ServerId}");
         }
         foreach (var a in evaluation.Created)

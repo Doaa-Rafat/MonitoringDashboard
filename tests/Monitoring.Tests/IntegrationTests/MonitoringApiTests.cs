@@ -54,6 +54,40 @@ public class MonitoringApiTests
     }
 
     [Fact]
+    public async Task ServerMetricHistory_ReturnsNetworkThroughput()
+    {
+        await using var server = await ApiTestServer.CreateAsync();
+        var token = await RegisterAsync(server, "network-user", "network@example.test");
+        server.Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var serverId = await server.SeedServerWithMetricAsync(new Metric
+        {
+            CpuUsage = 20,
+            MemoryUsage = 30,
+            DiskUsage = 40,
+            ResponseTime = 50,
+            NetworkInKbps = 1500.5,
+            NetworkOutKbps = 725.25,
+            Status = ServerStatus.Up,
+            Timestamp = DateTime.UtcNow
+        });
+
+        var response = await server.Client.GetAsync($"/api/v1/servers/{serverId}/metrics");
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var metric = body.GetProperty("items")[0];
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1500.5, metric.GetProperty("networkInKbps").GetDouble());
+        Assert.Equal(725.25, metric.GetProperty("networkOutKbps").GetDouble());
+
+        var serversResponse = await server.Client.GetAsync("/api/v1/servers");
+        var serversBody = await serversResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var latest = serversBody.GetProperty("items").EnumerateArray().Single()
+            .GetProperty("latestMetric");
+        Assert.Equal(1500.5, latest.GetProperty("networkInKbps").GetDouble());
+        Assert.Equal(725.25, latest.GetProperty("networkOutKbps").GetDouble());
+    }
+
+    [Fact]
     public async Task RegisteringDuplicateUsername_ReturnsConflict()
     {
         await using var server = await ApiTestServer.CreateAsync();
@@ -230,6 +264,20 @@ internal sealed class ApiTestServer : IAsyncDisposable
 
         await app.StartAsync();
         return new ApiTestServer(app, loggerProvider);
+    }
+
+    public async Task<int> SeedServerWithMetricAsync(Metric metric)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var monitoredServer = new Server { Name = $"network-{Guid.NewGuid():N}", Status = ServerStatus.Up };
+        db.Servers.Add(monitoredServer);
+        await db.SaveChangesAsync();
+
+        metric.ServerId = monitoredServer.ServerId;
+        db.Metrics.Add(metric);
+        await db.SaveChangesAsync();
+        return monitoredServer.ServerId;
     }
 
     public async ValueTask DisposeAsync()

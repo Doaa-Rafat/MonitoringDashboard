@@ -1,0 +1,15 @@
+**/bin
+**/obj
+**/.vs
+**/node_modules
+**/logs
+**/App_Data
+.git
+.github
+client
+docs
+tests
+tools
+.env
+.env.*
+*.md

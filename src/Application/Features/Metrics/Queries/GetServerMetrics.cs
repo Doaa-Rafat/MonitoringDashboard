@@ -20,7 +20,8 @@ public record GetServerMetricsQuery(
 
 public class GetServerMetricsQueryValidator : AbstractValidator<GetServerMetricsQuery>
 {
-    private static readonly string[] SortFields = ["timestamp", "cpu", "memory", "disk", "responsetime"];
+    private static readonly string[] SortFields =
+        ["timestamp", "cpu", "memory", "disk", "responsetime", "networkin", "networkout"];
 
     public GetServerMetricsQueryValidator()
     {
@@ -69,6 +70,8 @@ public class GetServerMetricsQueryHandler(IApplicationDbContext db)
             "memory"       => desc ? q.OrderByDescending(m => m.MemoryUsage)  : q.OrderBy(m => m.MemoryUsage),
             "disk"         => desc ? q.OrderByDescending(m => m.DiskUsage)    : q.OrderBy(m => m.DiskUsage),
             "responsetime" => desc ? q.OrderByDescending(m => m.ResponseTime) : q.OrderBy(m => m.ResponseTime),
+            "networkin"    => desc ? q.OrderByDescending(m => m.NetworkInKbps) : q.OrderBy(m => m.NetworkInKbps),
+            "networkout"   => desc ? q.OrderByDescending(m => m.NetworkOutKbps) : q.OrderBy(m => m.NetworkOutKbps),
             _              => desc ? q.OrderByDescending(m => m.Timestamp)    : q.OrderBy(m => m.Timestamp)
         };
 }

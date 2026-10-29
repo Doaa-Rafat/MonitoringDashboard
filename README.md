@@ -5,7 +5,7 @@ Real-time monitoring dashboard for a set of simulated servers. The repository co
 ## Implemented features
 
 - User registration and login, JWT access tokens, rotated refresh tokens stored as hashes, and Admin/User role authorization.
-- Server CRUD, current status, paged metric history, search, filtering, and sorting.
+- Server CRUD, current status, paged metric history, search, filtering, and sorting, including simulated inbound/outbound network throughput in Kbps.
 - Hangfire metric collection on a configurable 1-5 minute schedule. The collector generates simulated data; it does not read the host machine's performance counters.
 - Configurable global and per-server alert rules, alert evaluation during collection, alert history, acknowledge/resolve operations, and SignalR notifications.
 - Asynchronous HTML reports with status tracking, Hangfire continuation and timeout jobs, local file storage, and simulated email notifications.
@@ -60,7 +60,7 @@ Apply the idempotent schema and demo data script. Substitute the same local pass
 sqlcmd -S localhost,1433 -U sa -C -i db/schema.sql
 ```
 
-The schema script creates `MonitoringDb`, tables, constraints, indexes, roles, alert rules, sample servers, disks, and historical metrics. The API uses a database-first schema and does not contain EF migrations or automatically create/upgrade the database.
+The schema script creates `MonitoringDb`, tables, constraints, indexes, roles, alert rules, sample servers, disks, and historical metrics. It also upgrades an existing `Metrics` table with nullable inbound/outbound network columns and updates its history index. Re-run `db/schema.sql` against an existing database; existing rows and other data are preserved, with their unavailable historical network values left `NULL`. The API uses a database-first schema and does not contain EF migrations or automatically create/upgrade the database.
 
 ### 2. Configure API secrets
 
@@ -103,6 +103,7 @@ Open the Vite URL printed in the terminal (normally `http://localhost:5173`). Vi
 - `Reports:StoragePath`: report files are stored under the API content root by default.
 - `Seed:Admin:*` and `Seed:User:*`: optional seed user credentials. Values are read from configuration and should be stored as secrets.
 - `RateLimiting:AuthPermitPerMinute`: per-client-IP request limit for auth routes.
+- `Hangfire:AllowAnonymousDashboard`: local Development-only opt-in for anonymous Hangfire dashboard access. It is ignored outside Development.
 
 Environment variables use the standard ASP.NET Core double-underscore form (for example `ConnectionStrings__DefaultConnection` and `Jwt__Key`).
 
@@ -112,7 +113,7 @@ Register through `POST /api/v1/auth/register`; new registrations receive the Use
 
 ## Background jobs and real-time updates
 
-Hangfire uses the same SQL Server connection as the application database. A recurring job simulates metric collection, evaluates alert rules, saves metrics/alerts, and then publishes SignalR events. Report requests enqueue generation; a continuation sends a simulated email and publishes final status, while a delayed job marks stale reports failed. The dashboard is available at `/hangfire` and is Admin-only outside Development. API job monitoring routes require Admin authorization.
+Hangfire uses the same SQL Server connection as the application database. A recurring job simulates metric collection, evaluates alert rules, saves metrics/alerts, and then publishes SignalR events. Report requests enqueue generation; a continuation sends a simulated email and publishes final status, while a delayed job marks stale reports failed. The dashboard is Admin-only by default. For a local Development run only, anonymous access can be explicitly enabled with `dotnet user-secrets set "Hangfire:AllowAnonymousDashboard" "true" --project src/WebAPI`; the setting is ignored outside Development. Do not enable anonymous access when the development server is reachable by other users. API job monitoring routes require Admin authorization.
 
 SignalR events are sent from `/hubs/monitoring`. Clients can subscribe to the dashboard or a server; alerts and reports are broadcast to their corresponding groups. Presence is held in process memory, so it is per API instance.
 
@@ -128,7 +129,11 @@ npm run build
 npm test
 ```
 
-The .NET suite includes 22 unit tests for authentication, seeding, metrics collection, and alert evaluation, plus 5 HTTP integration scenarios for authentication, authorization, server creation, and report scheduling. The API tests use ASP.NET Core TestServer with EF Core InMemory and a no-op report scheduler; they do not start the production SQL Server/Hangfire composition. `npm test` currently exits with “No test files found”; the client test runner is configured, but test cases have not been added.
+The .NET suite includes unit tests for authentication, seeding, metrics collection/query mapping, alert evaluation, and dashboard access policy, plus HTTP integration scenarios for authentication, authorization, server creation, metric history, and report scheduling. The API tests use ASP.NET Core TestServer with EF Core InMemory and a no-op report scheduler; they do not start the production SQL Server/Hangfire composition. Vitest includes a component test for rendering inbound/outbound network chart series; broader frontend/API and end-to-end coverage remains limited.
+
+## Continuous integration
+
+The GitHub Actions workflow at `.github/workflows/ci.yml` runs on pushes and pull requests. It restores and builds `Monitoring.slnx` with .NET 10, runs the backend test project, installs the client dependencies with `npm ci` from `client/package-lock.json`, runs the frontend tests, and creates a production frontend build using Node.js 24. This workflow performs CI checks only: it does not build or publish deployment images, deploy applications, or provide continuous delivery (CD).
 
 ## Docker
 
@@ -136,13 +141,13 @@ The .NET suite includes 22 unit tests for authentication, seeding, metrics colle
 
 ## Known limitations and incomplete assessment items
 
-- Metrics are random simulated values, not measurements from monitored hosts. Disk entities exist in the schema, but collection currently records metric rows rather than per-drive disk samples.
+- Metrics, including inbound/outbound network throughput, are simulated values rather than measurements from monitored hosts. Disk entities exist in the schema, but collection currently records metric rows rather than per-drive disk samples. Existing metric rows have `NULL` network values because those values were not historically collected.
 - No EF migration history is maintained; `db/schema.sql` is the database setup source.
 - Report files use local disk storage and simulated email writes to logs. Multi-instance deployments need shared/object storage and a real mail integration.
 - Presence uses an in-memory tracker and SignalR has no Redis backplane; multiple API instances will not share presence or hub broadcasts.
 - Test coverage is limited: no coverage report or substantial frontend test suite. The HTTP integration tests use TestServer directly; WebApplicationFactory and full production startup are not covered.
 - The API build succeeds but currently emits four API-versioning/OpenAPI analyzer warnings (`AV0029`/`AV0030`); only API version v1 is configured today.
-- The assessment also asks for deployment documentation, screenshots/demo media, and a CI/CD pipeline or deployment guide. These are not present in the current repository; this task adds the requested README and architecture guide only.
+- Deployment documentation and screenshots/demo media are still not present. The GitHub Actions workflow runs CI checks only; deployment automation (CD) is not implemented.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for layer responsibilities, request and job flows, relationships, and configuration details.
 See [AI-USAGE.md](AI-USAGE.md) for the project's AI assistance log.

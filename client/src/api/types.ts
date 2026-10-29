@@ -25,7 +25,8 @@ export interface AuthResponse {
 }
 
 export interface LatestMetricDto {
-  cpuUsage: number; memoryUsage: number; diskUsage: number; responseTime: number; timestamp: string
+  cpuUsage: number; memoryUsage: number; diskUsage: number; responseTime: number
+  networkInKbps: number | null; networkOutKbps: number | null; timestamp: string
 }
 export interface ServerDto {
   id: number; name: string; ipAddress: string | null; status: 'Up' | 'Down'
@@ -34,6 +35,7 @@ export interface ServerDto {
 export interface MetricDto {
   id: number; serverId: number; cpuUsage: number; memoryUsage: number; diskUsage: number
   responseTime: number; status: 'Up' | 'Down'; timestamp: string
+  networkInKbps: number | null; networkOutKbps: number | null
 }
 
 export type AlertStatus = 'Triggered' | 'Acknowledged' | 'Resolved'

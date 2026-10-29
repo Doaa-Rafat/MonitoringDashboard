@@ -32,22 +32,28 @@ public class MetricsCollectionTests
         await db.SaveChangesAsync(CancellationToken.None);
 
         var samples = new Queue<MetricSample>([
-            new(95, 70, 60, 120, ServerStatus.Up),
-            new(40, 70, 60, 120, ServerStatus.Up)
+            new(95, 70, 60, 120, ServerStatus.Up, 1250, 640),
+            new(40, 70, 60, 120, ServerStatus.Up, 825, 415)
         ]);
         var notifier = new RecordingNotifier();
         var handler = CreateHandler(db, _ => samples.Dequeue(), notifier);
 
         Assert.Equal(1, await handler.Handle(new CollectMetricsCommand(), CancellationToken.None));
         var created = await db.Alerts.SingleAsync();
+        var firstMetric = await db.Metrics.SingleAsync();
         Assert.Equal(AlertStatus.Triggered, created.Status);
         Assert.Equal("web-01", notifier.Triggered.Single().ServerName);
+        Assert.Equal(1250, firstMetric.NetworkInKbps);
+        Assert.Equal(640, firstMetric.NetworkOutKbps);
+        Assert.Equal(1250, notifier.Metrics.Single().NetworkInKbps);
+        Assert.Equal(640, notifier.Metrics.Single().NetworkOutKbps);
 
         Assert.Equal(1, await handler.Handle(new CollectMetricsCommand(), CancellationToken.None));
         var resolved = await db.Alerts.SingleAsync();
         Assert.Equal(AlertStatus.Resolved, resolved.Status);
         Assert.NotNull(resolved.ResolvedAt);
         Assert.Single(notifier.Updated);
+        Assert.Equal(825, (await db.Metrics.OrderBy(m => m.MetricId).LastAsync()).NetworkInKbps);
     }
 
     [Fact]
@@ -61,7 +67,7 @@ public class MetricsCollectionTests
 
         var handler = CreateHandler(db, serverId => serverId == 1
             ? throw new InvalidOperationException("simulated collection failure")
-            : new MetricSample(25, 50, 40, 80, ServerStatus.Up), new RecordingNotifier());
+            : new MetricSample(25, 50, 40, 80, ServerStatus.Up, 300, 150), new RecordingNotifier());
 
         var count = await handler.Handle(new CollectMetricsCommand(), CancellationToken.None);
 
@@ -87,7 +93,7 @@ public class MetricsCollectionTests
 
         var notifier = new RecordingNotifier();
         var handler = CreateHandler(db,
-            _ => new MetricSample(0, 0, 0, 0, ServerStatus.Down), notifier);
+            _ => new MetricSample(0, 0, 0, 0, ServerStatus.Down, 0, 0), notifier);
 
         await handler.Handle(new CollectMetricsCommand(), CancellationToken.None);
 

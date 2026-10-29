@@ -17,7 +17,8 @@ export function useDashboardLive() {
                 status: m.status,
                 latestMetric: {
                   cpuUsage: m.cpuUsage, memoryUsage: m.memoryUsage, diskUsage: m.diskUsage,
-                  responseTime: m.responseTime, timestamp: m.timestamp,
+                  responseTime: m.responseTime, networkInKbps: m.networkInKbps,
+                  networkOutKbps: m.networkOutKbps, timestamp: m.timestamp,
                 },
               }
             : s,

@@ -17,6 +17,10 @@ public partial class Metric
 
     public double ResponseTime { get; set; }
 
+    public double? NetworkInKbps { get; set; }
+
+    public double? NetworkOutKbps { get; set; }
+
     public string Status { get; set; } = null!;
 
     public DateTime Timestamp { get; set; }

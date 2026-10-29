@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { MetricDto } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
@@ -11,10 +11,16 @@ const LIVE_POINTS = 60
 const RANGE_POINTS = 500
 
 const charts = [
-  { key: 'cpuUsage', title: 'CPU', unit: '%', color: '#6366f1', max: 100 },
-  { key: 'memoryUsage', title: 'Memory', unit: '%', color: '#10b981', max: 100 },
-  { key: 'diskUsage', title: 'Disk', unit: '%', color: '#f59e0b', max: 100 },
-  { key: 'responseTime', title: 'Response time', unit: ' ms', color: '#ef4444', max: undefined },
+  { title: 'CPU', max: 100, series: [{ key: 'cpuUsage', name: 'CPU', unit: '%', color: '#6366f1' }] },
+  { title: 'Memory', max: 100, series: [{ key: 'memoryUsage', name: 'Memory', unit: '%', color: '#10b981' }] },
+  { title: 'Disk', max: 100, series: [{ key: 'diskUsage', name: 'Disk', unit: '%', color: '#f59e0b' }] },
+  { title: 'Response time', max: undefined, series: [{ key: 'responseTime', name: 'Response time', unit: ' ms', color: '#ef4444' }] },
+  {
+    title: 'Network throughput', max: undefined, series: [
+      { key: 'networkInKbps', name: 'Inbound', unit: ' Kbps', color: '#06b6d4' },
+      { key: 'networkOutKbps', name: 'Outbound', unit: ' Kbps', color: '#8b5cf6' },
+    ],
+  },
 ] as const
 
 /** History from the API, extended in real time by SignalR. `from` switches to a historical range. */
@@ -45,22 +51,35 @@ export function ServerMetricsCharts({ serverId, from }: { serverId: number; from
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {charts.map((c) => (
-        <Card key={c.key}>
+        <Card key={c.title}>
           <h3 className="mb-2 text-sm font-medium">{c.title}</h3>
-          <div className="h-48" role="img" aria-label={`${c.title} over time`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="timestamp" tickFormatter={(t: string) => fmtTime(t)} minTickGap={40} fontSize={11} />
-                <YAxis domain={[0, c.max ?? 'auto']} fontSize={11} width={40} />
-                <Tooltip
-                  labelFormatter={(l) => fmtTime(String(l))}
-                  formatter={(v) => [`${Number(v).toFixed(1)}${c.unit}`, c.title]}
-                />
-                <Line type="monotone" dataKey={c.key} stroke={c.color} dot={false} strokeWidth={2} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {c.title === 'Network throughput' && data.every((m) => m.networkInKbps === null && m.networkOutKbps === null) ? (
+            <p role="status" className="py-16 text-center text-sm text-slate-500">
+              Network samples will appear after the next collection. Earlier network history is unavailable.
+            </p>
+          ) : (
+            <div className="h-48" role="img" aria-label={`${c.title} over time`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="timestamp" tickFormatter={(t: string) => fmtTime(t)} minTickGap={40} fontSize={11} />
+                  <YAxis domain={[0, c.max ?? 'auto']} fontSize={11} width={40} />
+                  <Tooltip
+                    labelFormatter={(l) => fmtTime(String(l))}
+                    formatter={(v, name) => {
+                      const series = c.series.find((s) => s.name === name)
+                      return [`${Number(v).toFixed(1)}${series?.unit ?? ''}`, String(name)]
+                    }}
+                  />
+                  {c.series.length > 1 && <Legend />}
+                  {c.series.map((s) => (
+                    <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.color}
+                      dot={false} strokeWidth={2} isAnimationActive={false} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </Card>
       ))}
     </div>

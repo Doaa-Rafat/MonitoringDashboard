@@ -68,6 +68,8 @@ CREATE TABLE dbo.Metrics (
     MemoryUsage  FLOAT NOT NULL,
     DiskUsage    FLOAT NOT NULL,
     ResponseTime FLOAT NOT NULL,              -- milliseconds
+    NetworkInKbps  FLOAT NULL,                 -- simulated inbound throughput; NULL for pre-upgrade history
+    NetworkOutKbps FLOAT NULL,                 -- simulated outbound throughput; NULL for pre-upgrade history
     Status       NVARCHAR(20) NOT NULL,
     Timestamp    DATETIME2(3) NOT NULL CONSTRAINT DF_Metrics_Timestamp DEFAULT SYSUTCDATETIME(),
     CONSTRAINT PK_Metrics PRIMARY KEY (MetricId),
@@ -76,11 +78,57 @@ CREATE TABLE dbo.Metrics (
     CONSTRAINT CK_Metrics_Memory CHECK (MemoryUsage BETWEEN 0 AND 100),
     CONSTRAINT CK_Metrics_Disk   CHECK (DiskUsage   BETWEEN 0 AND 100),
     CONSTRAINT CK_Metrics_Resp   CHECK (ResponseTime >= 0),
+    CONSTRAINT CK_Metrics_NetworkIn  CHECK (NetworkInKbps IS NULL OR NetworkInKbps >= 0),
+    CONSTRAINT CK_Metrics_NetworkOut CHECK (NetworkOutKbps IS NULL OR NetworkOutKbps >= 0),
     CONSTRAINT CK_Metrics_Status CHECK (Status IN (N'Up', N'Down')),
     INDEX IX_Metrics_ServerId_Timestamp NONCLUSTERED (ServerId, Timestamp DESC)
-        INCLUDE (CpuUsage, MemoryUsage, DiskUsage, ResponseTime, Status),
+        INCLUDE (CpuUsage, MemoryUsage, DiskUsage, ResponseTime, NetworkInKbps, NetworkOutKbps, Status),
     INDEX IX_Metrics_Timestamp NONCLUSTERED (Timestamp)   -- retention cleanup
 );
+GO
+
+/* Add network columns to an existing database without inventing values for prior samples. */
+IF COL_LENGTH(N'dbo.Metrics', N'NetworkInKbps') IS NULL
+    ALTER TABLE dbo.Metrics ADD NetworkInKbps FLOAT NULL;
+IF COL_LENGTH(N'dbo.Metrics', N'NetworkOutKbps') IS NULL
+    ALTER TABLE dbo.Metrics ADD NetworkOutKbps FLOAT NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID(N'dbo.Metrics') AND name = N'CK_Metrics_NetworkIn')
+    ALTER TABLE dbo.Metrics ADD CONSTRAINT CK_Metrics_NetworkIn
+        CHECK (NetworkInKbps IS NULL OR NetworkInKbps >= 0);
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID(N'dbo.Metrics') AND name = N'CK_Metrics_NetworkOut')
+    ALTER TABLE dbo.Metrics ADD CONSTRAINT CK_Metrics_NetworkOut
+        CHECK (NetworkOutKbps IS NULL OR NetworkOutKbps >= 0);
+GO
+
+/* Keep history reads covered after the new metric columns are introduced. */
+IF EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'dbo.Metrics') AND name = N'IX_Metrics_ServerId_Timestamp'
+)
+AND (
+    NOT EXISTS (
+        SELECT 1 FROM sys.indexes i
+        JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+        JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+        WHERE i.object_id = OBJECT_ID(N'dbo.Metrics') AND i.name = N'IX_Metrics_ServerId_Timestamp'
+          AND ic.is_included_column = 1 AND c.name = N'NetworkInKbps'
+    )
+    OR NOT EXISTS (
+        SELECT 1 FROM sys.indexes i
+        JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+        JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+        WHERE i.object_id = OBJECT_ID(N'dbo.Metrics') AND i.name = N'IX_Metrics_ServerId_Timestamp'
+          AND ic.is_included_column = 1 AND c.name = N'NetworkOutKbps'
+    )
+)
+BEGIN
+    DROP INDEX IX_Metrics_ServerId_Timestamp ON dbo.Metrics;
+    CREATE NONCLUSTERED INDEX IX_Metrics_ServerId_Timestamp
+        ON dbo.Metrics (ServerId, Timestamp DESC)
+        INCLUDE (CpuUsage, MemoryUsage, DiskUsage, ResponseTime, NetworkInKbps, NetworkOutKbps, Status);
+END;
 GO
 
 /* ---------- Disks ---------- */
@@ -212,12 +260,17 @@ BEGIN
         UNION ALL
         SELECT i + 1 FROM n WHERE i < 23
     )
-    INSERT INTO dbo.Metrics (ServerId, CpuUsage, MemoryUsage, DiskUsage, ResponseTime, Status, Timestamp)
+    INSERT INTO dbo.Metrics (ServerId, CpuUsage, MemoryUsage, DiskUsage, ResponseTime,
+        NetworkInKbps, NetworkOutKbps, Status, Timestamp)
     SELECT s.ServerId,
            10 + ABS(CHECKSUM(NEWID())) % 70,
            30 + ABS(CHECKSUM(NEWID())) % 60,
            40 + ABS(CHECKSUM(NEWID())) % 40,
            50 + ABS(CHECKSUM(NEWID())) % 400,
+           CASE WHEN s.Status = N'Down' AND n.i < 3 THEN 0
+                ELSE 100 + ABS(CHECKSUM(NEWID())) % 5000 END,
+           CASE WHEN s.Status = N'Down' AND n.i < 3 THEN 0
+                ELSE 50 + ABS(CHECKSUM(NEWID())) % 3000 END,
            CASE WHEN s.Status = N'Down' AND n.i < 3 THEN N'Down' ELSE N'Up' END,
            DATEADD(MINUTE, -5 * n.i, SYSUTCDATETIME())
     FROM dbo.Servers AS s

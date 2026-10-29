@@ -72,7 +72,9 @@ erDiagram
   SERVERS ||--o{ REPORTS : reports
 ```
 
-`AlertRules.ServerId` is nullable to represent a global rule. `Alerts.AlertRuleId` is nullable for historical/manual alerts. Server deletion is restricted when dependent metrics, disks, rules, alerts, or reports exist. Indexes support time-ordered metric/alert/report reads. The context stores and reads `DateTime` values as UTC. Hangfire persists its queues and state in the same SQL Server database using its own Hangfire tables.
+`AlertRules.ServerId` is nullable to represent a global rule. `Alerts.AlertRuleId` is nullable for historical/manual alerts. Each metric row stores CPU, memory, disk, response time, simulated network inbound/outbound throughput in Kbps, status, and timestamp. The server/timestamp index covers the metric fields returned by history queries. Server deletion is restricted when dependent metrics, disks, rules, alerts, or reports exist. The context stores and reads `DateTime` values as UTC. Hangfire persists its queues and state in the same SQL Server database using its own Hangfire tables.
+
+The database remains database-first: re-run `db/schema.sql` to add nullable `NetworkInKbps` and `NetworkOutKbps` columns and update the history index. Existing metric rows are preserved and retain `NULL` for network values that were never collected; new rows receive simulated values from the existing collection job.
 
 ## Authentication and secrets
 
@@ -82,7 +84,7 @@ JWT issuer/audience/lifetimes are ordinary appsettings configuration. The signin
 
 ## Background processing
 
-Hangfire starts with the API and stores job state in SQL Server. The recurring `CollectMetricsJob` runs every configured 1-5 minutes. It sends a MediatR command; the application asks `IMetricsCollector` for simulated samples, updates server status, evaluates alert rules, and saves metric/alert changes together. Notification failures are logged without undoing committed data.
+Hangfire starts with the API and stores job state in SQL Server. The recurring `CollectMetricsJob` runs every configured 1-5 minutes. It sends a MediatR command; the application asks `IMetricsCollector` for simulated samples, including inbound and outbound network throughput in Kbps, updates server status, evaluates alert rules, and saves metric/alert changes together. The persisted sample is projected into the metric-history API and SignalR event; the client charts historical and live values. Notification failures are logged without undoing committed data.
 
 Report requests create a pending database row, enqueue `GenerateReportJob`, add a continuation `FinalizeReportJob`, and schedule a delayed `ExpireStaleReportJob`. Generation stores an HTML report through `IReportFileStore`; the current adapter writes to local disk. Finalization uses `IEmailSender`, whose current implementation logs a simulated email, and publishes status through `IRealtimeNotifier`. Hangfire's built-in dashboard is protected by an authorization filter; API job listing/count/retry endpoints are Admin-only.
 
@@ -102,7 +104,7 @@ The current design is single-instance oriented: presence is not distributed, and
 
 ## Testing strategy and current coverage
 
-The `Monitoring.Tests` project uses xUnit and EF Core InMemory for 22 unit tests across auth, seeding, metric collection, and alert evaluation, plus five HTTP integration scenarios covering authentication, role protection, server creation, and report scheduling. The API scenarios run with ASP.NET Core TestServer and a no-op report scheduler; they exercise the controllers, middleware, MediatR handlers, and EF context, but do not start the production SQL Server/Hangfire composition through `WebApplicationFactory`. There are no meaningful frontend test cases in the checked-in client test directory, though Vitest and Testing Library dependencies/configuration are present. No verified coverage threshold is configured.
+The `Monitoring.Tests` project uses xUnit and EF Core InMemory for unit tests across auth, seeding, metric collection/query mapping, dashboard access policy, and alert evaluation, plus HTTP integration scenarios covering authentication, role protection, server creation, metric history, and report scheduling. The API scenarios run with ASP.NET Core TestServer and a no-op report scheduler; they exercise the controllers, middleware, MediatR handlers, and EF context, but do not start the production SQL Server/Hangfire composition through `WebApplicationFactory`. The client has a Vitest/Testing Library component test for the network chart; broader frontend coverage is limited. No verified coverage threshold is configured.
 
 ## Configuration and operations
 

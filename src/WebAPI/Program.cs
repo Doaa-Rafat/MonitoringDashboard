@@ -15,15 +15,27 @@ using WebAPI.Filters;
 using WebAPI.Hubs;
 using Infrastructure.Services;
 using WebAPI.Middleware;
+using Microsoft.AspNetCore.HttpOverrides;
 Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateBootstrapLogger();
 
 try
 {
 var builder = WebApplication.CreateBuilder(args);
+
     builder.Host.UseSerilog((ctx, services, cfg) => cfg
         .ReadFrom.Configuration(ctx.Configuration)
         .ReadFrom.Services(services)
         .Enrich.FromLogContext());
+
+        var behindProxy = builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled");
+if (behindProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        o.KnownProxies.Clear();
+    });
+}
 
     builder.Services.AddApplication();
 // Add services to the container.
@@ -96,6 +108,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
+
+if (behindProxy) app.UseForwardedHeaders();
+
 app.UseSerilogRequestLogging();
     app.UseMiddleware<ExceptionHandlingMiddleware>();
 
@@ -111,7 +126,7 @@ app.UseSerilogRequestLogging();
         });
     }
 
-app.UseHttpsRedirection();
+if (app.Configuration.GetValue("HttpsRedirection:Enabled", true)) app.UseHttpsRedirection();
 app.UseCors("Client");
 app.UseAuthentication();
 app.UseRateLimiter();
@@ -119,7 +134,10 @@ app.UseAuthorization();
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     DashboardTitle = "Monitoring Jobs",
-    Authorization = [new HangfireDashboardAuthorizationFilter(app.Environment)]
+    Authorization = [new HangfireDashboardAuthorizationFilter(
+        HangfireDashboardAuthorizationFilter.IsAnonymousAccessEnabled(
+            app.Environment.IsDevelopment(),
+            app.Configuration.GetValue<bool>("Hangfire:AllowAnonymousDashboard")))]
 });
 app.MapControllers();
 app.MapHealthEndpoints();

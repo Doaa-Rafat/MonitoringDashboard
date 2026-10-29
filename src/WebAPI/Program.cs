@@ -122,11 +122,12 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = [new HangfireDashboardAuthorizationFilter(app.Environment)]
 });
 app.MapControllers();
+app.MapHealthEndpoints();
 app.MapHub<MonitoringHub>("/hubs/monitoring");
 app.RegisterRecurringJobs();
 app.Run();
 }
-catch (Exception ex)
+catch (Exception ex) when (ex is not Microsoft.Extensions.Hosting.HostAbortedException)
 {
     Log.Fatal(ex, "Host terminated unexpectedly");
 }

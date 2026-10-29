@@ -10,6 +10,16 @@ public class PasswordHashService : IPasswordHashService
 
     public string Hash(string password) => _hasher.HashPassword(new User(), password);
 
-    public bool Verify(string hash, string password) =>
-        _hasher.VerifyHashedPassword(new User(), hash, password) != PasswordVerificationResult.Failed;
+    public bool Verify(string hash, string password)
+    {
+        try
+        {
+            return _hasher.VerifyHashedPassword(new User(), hash, password) != PasswordVerificationResult.Failed;
+        }
+        catch (FormatException)
+        {
+            // Treat malformed or legacy seed hashes as invalid so they can be replaced safely.
+            return false;
+        }
+    }
 }

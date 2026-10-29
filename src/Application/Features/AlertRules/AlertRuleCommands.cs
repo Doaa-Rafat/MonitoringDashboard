@@ -88,6 +88,9 @@ public class UpdateAlertRuleCommandHandler(IApplicationDbContext db)
         if (rule.MetricType != MetricTypes.ResponseTime && request.Threshold > 100)
             throw new ValidationException([new ValidationFailure(nameof(request.Threshold),
                 "Threshold for percentage metrics must be between 0 and 100.")]);
+        if (rule.MetricType == MetricTypes.ResponseTime && request.Threshold > 600_000)
+            throw new ValidationException([new ValidationFailure(nameof(request.Threshold),
+                "Threshold for ResponseTime is in milliseconds (0 - 600000).")]);
 
         rule.Operator = request.Operator;
         rule.Threshold = request.Threshold;

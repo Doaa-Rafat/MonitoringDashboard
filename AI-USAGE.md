@@ -19,6 +19,7 @@ what I did with its output, and what I wrote myself.
 | Database schema (`db/schema.sql`) | Claude drafted the initial SQL schema and seed script from the hints document | Reviewed every table, constraint and index. Decisions I made: foreign keys use RESTRICT (NO ACTION), `UserRoles` join table replaces `Users.RoleId` for the many-to-many requirement, `AlertRules` table added. Users are seeded by the application, not SQL. |
 | Environment setup | Help with the Docker Compose file for SQL Server, solution/project structure commands, and Git/GitHub setup | Ran and verified each step on my machine |
 | Dependency warning (NU1903) | Explained the Microsoft.OpenApi advisory (GHSA-v5pm-xwqc-g5wc) | Pinned `Microsoft.OpenApi` 2.7.5 in `WebAPI.csproj` |
+| Follow-up architecture review and completion | Codex inspected the existing code and assessment documents, drafted `README.md` and `docs/ARCHITECTURE.md`, corrected health endpoint mapping, auth rate limiting, seed-role setup, and alert threshold validation, and added metric/alert and HTTP integration tests | Changes follow the established project structure. Codex built the full solution, ran 27 .NET tests, built the frontend, and confirmed `npm test` currently has no test files; repository owner review remains appropriate. |
 
 <!-- Add a row for every area where AI helps from now on. -->
 
@@ -32,6 +33,7 @@ what I did with its output, and what I wrote myself.
 
 ## How I verified AI output
 
-- Built and ran everything locally.
+- Original project verification is recorded above; for this follow-up, Codex ran `dotnet build Monitoring.slnx` and the .NET test suite (27 passed), plus `npm run build` (passed).
+- `npm test` was run and reported that no client test files are present.
 - Checked advisories and package versions against their official sources.
-- Tested behavior with unit and integration tests (to be updated as tests are added).
+- The new HTTP integration tests use ASP.NET Core TestServer and EF Core InMemory; they do not start SQL Server or Hangfire.

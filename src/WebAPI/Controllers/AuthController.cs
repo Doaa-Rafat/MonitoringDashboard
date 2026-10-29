@@ -4,11 +4,13 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace WebAPI.Controllers;
 
 [ApiController]
 [ApiVersion("1.0")]
+[EnableRateLimiting("auth")]
 [Route("api/v{version:apiVersion}/auth")]
 public class AuthController(ISender mediator) : ControllerBase
 {
